@@ -1,0 +1,42 @@
+name: Moodle Plugin CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php: ['8.1', '8.2']
+        moodle-branch: ['MOODLE_402_STABLE', 'MOODLE_403_STABLE', 'MOODLE_404_STABLE']
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, mysqli, zip, xml, json
+          tools: composer
+
+      - name: Install moodle-plugin-ci
+        run: |
+          composer create-project --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo "$(cd ci/bin; pwd)" >> $GITHUB_PATH
+
+      - name: Run moodle-plugin-ci
+        run: |
+          moodle-plugin-ci install --plugin plugin --moodle-branch ${{ matrix.moodle-branch }}
+          moodle-plugin-ci phplint
+          moodle-plugin-ci phpcpd || true
+          moodle-plugin-ci phpmd || true
+          moodle-plugin-ci codechecker
+          moodle-plugin-ci validate
+          moodle-plugin-ci savepoints
+          moodle-plugin-ci mustache
+
