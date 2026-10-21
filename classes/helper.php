@@ -5,6 +5,22 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Helper utilities for bulk course copying.
+ *
+ * @package    tool_bulkcopycourse
+ * @copyright  2024 Ferdiyan Deni <ferdiyantodeni@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 namespace tool_bulkcopycourse;
 
@@ -62,16 +78,6 @@ class helper {
 
     /**
      * Parse date string to unix timestamp (Moodle's required format).
-     * Supports:
-     * - dd/mm/yyyy hh:mm:ss, dd-mm-yyyy hh:mm:ss, dd.mm.yyyy hh:mm:ss
-     * - dd/mm/yyyy hh:mm, dd-mm-yyyy hh:mm, dd.mm.yyyy hh:mm
-     * - dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy
-     * - yyyy-mm-dd hh:mm:ss, yyyy-mm-dd
-     * - yyyy/mm/dd hh:mm:ss, yyyy/mm/dd
-     * - 12-hour format with AM/PM (e.g. 06/10/2026 02:30:00 PM)
-     * - Textual months in English and Indonesian (e.g. "06 Oktober 2026 00:00:00", "06-Oct-2026")
-     * - Excel date serial numbers (e.g. 46301 or 46301.958333)
-     * - Existing Unix timestamps
      *
      * @param string|int|float $datestr Raw input date string or number.
      * @param bool $isenddate If true and no time is provided, defaults time to 23:59:59 instead of 00:00:00.
@@ -102,134 +108,237 @@ class helper {
             return 0;
         }
 
-        // 2. Translate Indonesian month names to English.
-        $lowercased = strtolower($datestr);
-        foreach (self::INDO_MONTHS as $idmonth => $enmonth) {
-            if (strpos($lowercased, $idmonth) !== false) {
-                $datestr = preg_replace('/\b' . preg_quote($idmonth, '/') . '\b/i', $enmonth, $datestr);
-            }
+        // 2. Remove multiple spaces and normalize separators.
+        $clean = preg_replace('/\s+/', ' ', $datestr);
+
+        // 3. Replace Indonesian month names with English.
+        foreach (self::INDO_MONTHS as $indo => $eng) {
+            $clean = preg_replace('/\b' . preg_quote($indo, '/') . '\b/i', $eng, $clean);
         }
 
-        // 3. Normalize multiple spaces.
-        $datestr = preg_replace('/\s+/', ' ', $datestr);
+        // 4. Check for standard d/m/Y or d-m-Y formats with or without time.
+        // Format A: dd/mm/yyyy hh:mm:ss (or dd-mm-yyyy, dd.mm.yyyy)
+        if (preg_match('/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(am|pm))?)?$/i', $clean, $m)) {
+            $day = (int)$m[1];
+            $month = (int)$m[2];
+            $year = (int)$m[3];
 
-        // 4. Try parsing with explicit known formats.
-        $formats = [
-            // Standard day-month-year 24h with seconds
-            'd/m/Y H:i:s',
-            'd-m-Y H:i:s',
-            'd.m.Y H:i:s',
+            $hour = isset($m[4]) ? (int)$m[4] : ($isenddate ? 23 : 0);
+            $min = isset($m[5]) ? (int)$m[5] : ($isenddate ? 59 : 0);
+            $sec = isset($m[6]) && $m[6] !== '' ? (int)$m[6] : ($isenddate ? 59 : 0);
 
-            // Day-month-year 24h without seconds
-            'd/m/Y H:i',
-            'd-m-Y H:i',
-            'd.m.Y H:i',
-
-            // Day-month-year 12h with AM/PM
-            'd/m/Y h:i:s A',
-            'd/m/Y h:i:s a',
-            'd-m-Y h:i:s A',
-            'd-m-Y h:i:s a',
-            'd/m/Y h:i A',
-            'd/m/Y h:i a',
-            'd-m-Y h:i A',
-            'd-m-Y h:i a',
-
-            // ISO Year-month-day
-            'Y-m-d H:i:s',
-            'Y-m-d H:i',
-            'Y/m/d H:i:s',
-            'Y/m/d H:i',
-
-            // Textual month formats (e.g. 06 Oct 2026 00:00:00, 6 October 2026)
-            'd M Y H:i:s',
-            'd F Y H:i:s',
-            'd-M-Y H:i:s',
-            'd-F-Y H:i:s',
-            'd M Y H:i',
-            'd F Y H:i',
-            'd-M-Y H:i',
-            'd-F-Y H:i',
-
-            // Date only (day first)
-            'd/m/Y',
-            'd-m-Y',
-            'd.m.Y',
-            'd M Y',
-            'd F Y',
-            'd-M-Y',
-            'd-F-Y',
-
-            // Date only (year first)
-            'Y-m-d',
-            'Y/m/d',
-
-            // US Month-day-year fallback
-            'm/d/Y H:i:s',
-            'm/d/Y H:i',
-            'm-d-Y H:i:s',
-            'm-d-Y H:i',
-            'm/d/Y',
-            'm-d-Y',
-        ];
-
-        foreach ($formats as $fmt) {
-            $dt = \DateTime::createFromFormat($fmt, $datestr);
-            // Verify createFromFormat parsed without errors or warnings
-            $errors = \DateTime::getLastErrors();
-            if ($dt !== false && empty($errors['warning_count']) && empty($errors['error_count'])) {
-                // If format is date-only and this is an end date, set time to 23:59:59
-                if ($isenddate && in_array($fmt, ['d/m/Y', 'd-m-Y', 'd.m.Y', 'd M Y', 'd F Y', 'd-M-Y', 'd-F-Y', 'Y-m-d', 'Y/m/d', 'm/d/Y', 'm-d-Y'], true)) {
-                    $dt->setTime(23, 59, 59);
+            if (isset($m[7]) && !empty($m[7])) {
+                $ampm = strtolower($m[7]);
+                if ($ampm === 'pm' && $hour < 12) {
+                    $hour += 12;
+                } else if ($ampm === 'am' && $hour === 12) {
+                    $hour = 0;
                 }
-                return $dt->getTimestamp();
+            }
+
+            if (checkdate($month, $day, $year)) {
+                $ts = mktime($hour, $min, $sec, $month, $day, $year);
+                if ($ts !== false && $ts > 0) {
+                    return $ts;
+                }
             }
         }
 
-        // 5. Fallback: strtotime with dot replacement.
-        // PHP strtotime interprets dots as American format mm.dd.yy if year is 2 digits,
-        // but with 4-digit years converting dots to dashes helps strtotime recognize dd-mm-yyyy.
-        $normalized = str_replace('.', '-', $datestr);
-        $ts = strtotime($normalized);
-        if ($ts !== false && $ts > 0) {
-            if ($isenddate && strpos($datestr, ':') === false) {
-                // Set to end of day if no time was included
-                $ts = strtotime('23:59:59', $ts);
+        // Format B: yyyy-mm-dd hh:mm:ss (or yyyy/mm/dd)
+        if (preg_match('/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(am|pm))?)?$/i', $clean, $m)) {
+            $year = (int)$m[1];
+            $month = (int)$m[2];
+            $day = (int)$m[3];
+
+            $hour = isset($m[4]) ? (int)$m[4] : ($isenddate ? 23 : 0);
+            $min = isset($m[5]) ? (int)$m[5] : ($isenddate ? 59 : 0);
+            $sec = isset($m[6]) && $m[6] !== '' ? (int)$m[6] : ($isenddate ? 59 : 0);
+
+            if (isset($m[7]) && !empty($m[7])) {
+                $ampm = strtolower($m[7]);
+                if ($ampm === 'pm' && $hour < 12) {
+                    $hour += 12;
+                } else if ($ampm === 'am' && $hour === 12) {
+                    $hour = 0;
+                }
             }
-            return (int)$ts;
+
+            if (checkdate($month, $day, $year)) {
+                $ts = mktime($hour, $min, $sec, $month, $day, $year);
+                if ($ts !== false && $ts > 0) {
+                    return $ts;
+                }
+            }
+        }
+
+        // 5. Try strtotime() for textual dates (e.g. "06 Oct 2026", "2026-10-06T14:30:00")
+        $ts = strtotime($clean);
+        if ($ts !== false && $ts > 0) {
+            // If user did not supply a time component and this is an end date, adjust to end of day.
+            if ($isenddate && !preg_match('/\d{1,2}:\d{2}/', $clean)) {
+                $ts = strtotime(date('Y-m-d 23:59:59', $ts));
+            }
+            return $ts;
         }
 
         return 0;
     }
 
     /**
-     * Detect CSV delimiter from content.
+     * Auto-detect CSV delimiter (comma, semicolon, or tab).
      *
-     * @param string $firstline
+     * @param string $content
      * @return string
      */
-    public static function detect_delimiter(string $firstline): string {
-        $delimiters = [',', ';', "\t", '|'];
-        $counts = [];
-
-        foreach ($delimiters as $delim) {
-            $counts[$delim] = substr_count($firstline, $delim);
+    public static function detect_delimiter(string $content): string {
+        $firstline = strtok($content, "\r\n");
+        if ($firstline === false) {
+            return ',';
         }
 
-        arsort($counts);
-        $topdelim = key($counts);
-        return ($counts[$topdelim] > 0) ? $topdelim : ',';
+        $semicolons = substr_count($firstline, ';');
+        $commas = substr_count($firstline, ',');
+        $tabs = substr_count($firstline, "\t");
+
+        if ($semicolons > $commas && $semicolons > $tabs) {
+            return ';';
+        }
+        if ($tabs > $commas && $tabs > $semicolons) {
+            return "\t";
+        }
+        return ',';
     }
 
     /**
-     * Parse uploaded CSV file.
+     * Clean BOM and convert encoding to UTF-8.
      *
-     * @param string $filepath Path to CSV file.
-     * @param string $delimiter Optional specified delimiter.
-     * @param string $encoding File encoding.
+     * @param string $content
+     * @param string $encoding
+     * @return string
+     */
+    public static function clean_content(string $content, string $encoding = 'UTF-8'): string {
+        // Strip UTF-8 BOM if present
+        $bom = pack('H*', 'EFBBBF');
+        $content = preg_replace("/^$bom/", '', $content);
+
+        // Convert encoding if not UTF-8
+        if (strtoupper($encoding) !== 'UTF-8' && function_exists('mb_convert_encoding')) {
+            $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+        }
+
+        return $content;
+    }
+
+    /**
+     * Parse CSV content and extract validated rows and headers.
+     *
+     * @param string $content Raw CSV string.
+     * @param string $delimiter 'auto', ',', ';', or "\t".
+     * @param string $encoding 'UTF-8', 'ISO-8859-1', etc.
      * @return array Array containing 'headers', 'rows', and 'errors'.
      */
-    public static function parse_csv_file(string $filepath, string $delimiter = '', string $encoding = 'UTF-8'): array {
+    public static function parse_csv_content(string $content, string $delimiter = 'auto', string $encoding = 'UTF-8'): array {
+        $content = self::clean_content($content, $encoding);
+
+        if ($delimiter === 'auto') {
+            $delimiter = self::detect_delimiter($content);
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', trim($content));
+        if (empty($lines)) {
+            return [
+                'headers' => [],
+                'rows' => [],
+                'errors' => [get_string('err_filenotfound', 'tool_bulkcopycourse')],
+            ];
+        }
+
+        // Parse header
+        $rawheader = array_shift($lines);
+        $stream = fopen('php://memory', 'r+');
+        fputs($stream, $rawheader);
+        rewind($stream);
+        $headers = fgetcsv($stream, 0, $delimiter);
+        fclose($stream);
+
+        if (!$headers) {
+            return [
+                'headers' => [],
+                'rows' => [],
+                'errors' => [get_string('err_filenotfound', 'tool_bulkcopycourse')],
+            ];
+        }
+
+        // Normalize header strings (lowercase, trim, strip BOM)
+        $cleanheaders = [];
+        foreach ($headers as $h) {
+            $clean = strtolower(trim(preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h)));
+            $cleanheaders[] = $clean;
+        }
+
+        // Check required columns
+        $missing = [];
+        foreach (self::REQUIRED_COLUMNS as $col) {
+            if (!in_array($col, $cleanheaders, true)) {
+                $missing[] = $col;
+            }
+        }
+
+        if (!empty($missing)) {
+            return [
+                'headers' => $cleanheaders,
+                'rows' => [],
+                'errors' => [get_string('err_missingcolumns', 'tool_bulkcopycourse', implode(', ', $missing))],
+            ];
+        }
+
+        $rows = [];
+        $linenumber = 1; // line 1 was header
+
+        foreach ($lines as $line) {
+            $linenumber++;
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $stream = fopen('php://memory', 'r+');
+            fputs($stream, $line);
+            rewind($stream);
+            $values = fgetcsv($stream, 0, $delimiter);
+            fclose($stream);
+
+            if (!$values || count($values) < 2) {
+                continue;
+            }
+
+            $rowdata = new \stdClass();
+            $rowdata->linenumber = $linenumber;
+
+            foreach ($cleanheaders as $idx => $headername) {
+                $val = isset($values[$idx]) ? trim($values[$idx]) : '';
+                $rowdata->$headername = $val;
+            }
+
+            $rows[] = $rowdata;
+        }
+
+        return [
+            'headers' => $cleanheaders,
+            'rows' => $rows,
+            'errors' => [],
+        ];
+    }
+
+    /**
+     * Parse CSV file directly from filesystem path.
+     *
+     * @param string $filepath
+     * @param string $delimiter
+     * @param string $encoding
+     * @return array
+     */
+    public static function parse_csv_file(string $filepath, string $delimiter = 'auto', string $encoding = 'UTF-8'): array {
         if (!file_exists($filepath) || !is_readable($filepath)) {
             return [
                 'headers' => [],
@@ -239,103 +348,14 @@ class helper {
         }
 
         $content = file_get_contents($filepath);
-        if ($content === false) {
-            return [
-                'headers' => [],
-                'rows' => [],
-                'errors' => [get_string('err_filenotfound', 'tool_bulkcopycourse')],
-            ];
-        }
-
-        // Convert encoding if needed.
-        if (strtoupper($encoding) !== 'UTF-8') {
-            $converted = @iconv($encoding, 'UTF-8//IGNORE', $content);
-            if ($converted !== false) {
-                $content = $converted;
-            }
-        }
-
-        // Remove UTF-8 BOM if present.
-        $bom = pack('H*', 'EFBBBF');
-        $content = preg_replace("/^$bom/", '', $content);
-
-        // Normalize newlines.
-        $content = str_replace(["\r\n", "\r"], "\n", $content);
-        $lines = explode("\n", trim($content));
-
-        if (empty($lines)) {
-            return [
-                'headers' => [],
-                'rows' => [],
-                'errors' => ['File is empty.'],
-            ];
-        }
-
-        $headerline = $lines[0];
-        if (empty($delimiter) || $delimiter === 'auto') {
-            $delimiter = self::detect_delimiter($headerline);
-        }
-
-        $rawheaders = str_getcsv($headerline, $delimiter);
-        $headers = [];
-        foreach ($rawheaders as $h) {
-            $headers[] = strtolower(trim($h));
-        }
-
-        // Check required columns.
-        $missing = [];
-        foreach (self::REQUIRED_COLUMNS as $req) {
-            if (!in_array($req, $headers, true)) {
-                $missing[] = $req;
-            }
-        }
-
-        if (!empty($missing)) {
-            return [
-                'headers' => $headers,
-                'rows' => [],
-                'errors' => [get_string('err_missingcolumns', 'tool_bulkcopycourse', implode(', ', $missing))],
-            ];
-        }
-
-        $rows = [];
-        $linenumber = 1;
-
-        for ($i = 1; $i < count($lines); $i++) {
-            $line = trim($lines[$i]);
-            if ($line === '') {
-                continue;
-            }
-            $linenumber++;
-
-            $data = str_getcsv($line, $delimiter);
-            if (count($data) === 1 && $data[0] === null) {
-                continue;
-            }
-
-            $rowdata = new \stdClass();
-            $rowdata->linenumber = $linenumber;
-
-            foreach ($headers as $colidx => $colname) {
-                $val = isset($data[$colidx]) ? trim($data[$colidx]) : '';
-                $rowdata->$colname = $val;
-            }
-
-            $rows[] = $rowdata;
-        }
-
-        return [
-            'headers' => $headers,
-            'rows' => $rows,
-            'errors' => [],
-        ];
+        return self::parse_csv_content($content, $delimiter, $encoding);
     }
 
     /**
-     * Validate course rows against Moodle database.
+     * Validate an array of parsed row objects.
      *
      * @param array $rows
-     * @return array Array of validated rows with status and error messages.
+     * @return array Array of validated objects with 'status' and 'messages' properties.
      */
     public static function validate_rows(array $rows): array {
         global $DB;
@@ -397,7 +417,7 @@ class helper {
                 $warnings[] = get_string('err_invaliddate', 'tool_bulkcopycourse') . " (enddate: {$item->enddate})";
             }
             if ($item->startdate_timestamp > 0 && $item->enddate_timestamp > 0 && $item->enddate_timestamp < $item->startdate_timestamp) {
-                $warnings[] = 'Tanggal selesai mendahului tanggal mulai (enddate < startdate)';
+                $warnings[] = get_string('err_enddate_before_startdate', 'tool_bulkcopycourse');
             }
 
             // 6. Visible
@@ -447,9 +467,8 @@ class helper {
         );
 
         return \html_writer::div(
-            'Version ' . s($versionstr) . ' &bull; Developed by ' . $authorlink,
+            get_string('version_info', 'tool_bulkcopycourse', ['version' => s($versionstr), 'author' => $authorlink]),
             'text-center text-muted small mt-4 pt-3 border-top'
         );
     }
 }
-

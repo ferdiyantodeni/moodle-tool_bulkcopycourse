@@ -5,6 +5,22 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Course copier core engine.
+ *
+ * @package    tool_bulkcopycourse
+ * @copyright  2024 Ferdiyan Deni <ferdiyantodeni@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 namespace tool_bulkcopycourse;
 
@@ -37,7 +53,7 @@ class course_copier {
 
         if (empty($userid)) {
             $admin = get_admin();
-            $userid = !empty($USER->id) ? $USER->id : ($admin ? $admin->id : 2);
+            $userid = !empty($USER->id) ? (int)$USER->id : ($admin ? (int)$admin->id : 2);
         }
 
         // 1. Verify source course.
@@ -80,7 +96,7 @@ class course_copier {
         );
 
         if (!$newcourseid) {
-            throw new \moodle_exception('Could not create destination course record.');
+            throw new \moodle_exception('err_cannotcreatecourse', 'tool_bulkcopycourse');
         }
 
         $backupfile = null;
@@ -217,7 +233,7 @@ class course_copier {
     /**
      * Safely set a backup/restore plan setting if it exists.
      *
-     * @param \base_plan $plan
+     * @param \base_plan|null $plan
      * @param string $name
      * @param mixed $value
      */

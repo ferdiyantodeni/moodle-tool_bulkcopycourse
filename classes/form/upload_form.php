@@ -5,6 +5,22 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Bulk copy course upload form.
+ *
+ * @package    tool_bulkcopycourse
+ * @copyright  2024 Ferdiyan Deni <ferdiyantodeni@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 namespace tool_bulkcopycourse\form;
 
@@ -13,7 +29,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 /**
- * Bulk copy course upload form.
+ * Form for uploading course CSV file.
  */
 class upload_form extends \moodleform {
 
@@ -45,10 +61,10 @@ class upload_form extends \moodleform {
 
         // CSV delimiter.
         $delimiters = [
-            'auto' => 'Auto-detect',
-            ',' => 'Comma (,)',
-            ';' => 'Semicolon (;)',
-            '\t' => 'Tab',
+            'auto' => get_string('autodetect', 'tool_bulkcopycourse'),
+            ',' => get_string('comma', 'tool_bulkcopycourse'),
+            ';' => get_string('semicolon', 'tool_bulkcopycourse'),
+            '\t' => get_string('tab', 'tool_bulkcopycourse'),
         ];
         $mform->addElement(
             'select',
@@ -61,8 +77,8 @@ class upload_form extends \moodleform {
         // Encoding.
         $encodings = [
             'UTF-8' => 'UTF-8',
-            'ISO-8859-1' => 'ISO-8859-1',
-            'Windows-1252' => 'Windows-1252',
+            'ISO-8859-1' => 'ISO-8859-1 (Latin 1)',
+            'WINDOWS-1252' => 'Windows-1252',
         ];
         $mform->addElement(
             'select',

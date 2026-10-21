@@ -2,11 +2,28 @@
 Script to package Moodle plugin into a compliant ZIP file for Moodle Marketplace / Plugins Directory.
 """
 import os
+import re
 import zipfile
 import time
 
+def get_plugin_version():
+    version_file = 'version.php'
+    release = 'v1.0.7'
+    build = '2024050107'
+    if os.path.exists(version_file):
+        with open(version_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            m_rel = re.search(r"\$plugin->release\s*=\s*['\"]([^'\"]+)['\"];", content)
+            if m_rel:
+                release = m_rel.group(1)
+            m_bld = re.search(r"\$plugin->version\s*=\s*([0-9]+);", content)
+            if m_bld:
+                build = m_bld.group(1)
+    return release, build
+
 def build_package():
-    zip_filename = 'tool_bulkcopycourse_v1.0.6_2024050106.zip'
+    release, build = get_plugin_version()
+    zip_filename = f'tool_bulkcopycourse_{release}_{build}.zip'
     root_folder = 'bulkcopycourse'
 
     files_to_pack = []
@@ -47,6 +64,7 @@ def build_package():
             z.writestr(zi, data, compress_type=zipfile.ZIP_DEFLATED)
 
     print(f'Successfully created Moodle-compliant ZIP: {zip_filename}')
+    return zip_filename
 
 if __name__ == '__main__':
     build_package()

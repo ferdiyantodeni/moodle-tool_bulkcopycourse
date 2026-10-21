@@ -1,0 +1,131 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template tool_bulkcopycourse/process
+
+    Process template for bulk course copying.
+
+    Example context (json):
+    {
+        "jobid": 1,
+        "totalcount": 5,
+        "completedcourses": 0,
+        "failedcourses": 0,
+        "remainingcount": 5,
+        "historyurl": "http://example.com/history.php",
+        "indexurl": "http://example.com/index.php",
+        "initiallog": "[12:00:00] Initializing...",
+        "items": []
+    }
+}}
+<div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white font-weight-bold">
+        <i class="fa fa-spinner fa-spin mr-1" id="job-spinner"></i>
+        {{#str}} processing_title, tool_bulkcopycourse {{/str}} - {{#str}} job_id, tool_bulkcopycourse, {{jobid}} {{/str}}
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3" id="process-description">
+            {{#str}} processing_desc, tool_bulkcopycourse {{/str}}
+        </p>
+
+        <!-- Progress Bar -->
+        <div class="progress mb-3" style="height: 28px; font-size: 14px;">
+            <div id="progressbar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                 role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                0%
+            </div>
+        </div>
+
+        <!-- Metric badges -->
+        <div class="d-flex justify-content-between text-center mb-3">
+            <span class="badge badge-light p-2 border">{{#str}} col_totalcourses, tool_bulkcopycourse {{/str}}: <b id="count-total">{{totalcount}}</b></span>
+            <span class="badge badge-success p-2">{{#str}} status_success, tool_bulkcopycourse {{/str}}: <b id="count-success">{{completedcourses}}</b></span>
+            <span class="badge badge-danger p-2">{{#str}} status_failed, tool_bulkcopycourse {{/str}}: <b id="count-failed">{{failedcourses}}</b></span>
+            <span class="badge badge-info p-2">{{#str}} queue_remaining, tool_bulkcopycourse {{/str}}: <b id="count-remaining">{{remainingcount}}</b></span>
+        </div>
+
+        <!-- Live Log Console -->
+        <h6 class="font-weight-bold"><i class="fa fa-terminal mr-1"></i> {{#str}} live_log_title, tool_bulkcopycourse {{/str}}</h6>
+        <div id="log-console" class="bg-dark text-light p-3 rounded mb-3"
+             style="height: 220px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.6;">
+            <div class="text-secondary">{{initiallog}}</div>
+        </div>
+
+        <!-- Action buttons after finished -->
+        <div id="finished-actions" class="text-center mt-3" style="display: none;">
+            <a href="{{historyurl}}" class="btn btn-success btn-lg mr-2">
+                <i class="fa fa-check-circle mr-1"></i> {{#str}} view_results_report, tool_bulkcopycourse {{/str}}
+            </a>
+            <a href="{{indexurl}}" class="btn btn-outline-secondary btn-lg">
+                <i class="fa fa-upload mr-1"></i> {{#str}} copy_more_courses, tool_bulkcopycourse {{/str}}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white font-weight-bold">
+        <i class="fa fa-list mr-1"></i> {{#str}} course_list_in_job, tool_bulkcopycourse {{/str}}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0" id="table-items">
+                <thead class="thead-light">
+                    <tr>
+                        <th style="width: 50px;">{{#str}} col_linenumber, tool_bulkcopycourse {{/str}}</th>
+                        <th style="width: 140px;">{{#str}} col_status, tool_bulkcopycourse {{/str}}</th>
+                        <th>{{#str}} col_copyshortname, tool_bulkcopycourse {{/str}}</th>
+                        <th>{{#str}} col_shortname, tool_bulkcopycourse {{/str}}</th>
+                        <th>{{#str}} col_fullname, tool_bulkcopycourse {{/str}}</th>
+                        <th>{{#str}} course_link, tool_bulkcopycourse {{/str}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#items}}
+                    <tr id="row-item-{{id}}">
+                        <td class="font-weight-bold text-center">{{linenumber}}</td>
+                        <td class="item-status">
+                            {{#issuccess}}
+                                <span class="badge badge-success"><i class="fa fa-check"></i> {{#str}} status_success, tool_bulkcopycourse {{/str}}</span>
+                            {{/issuccess}}
+                            {{#iserror}}
+                                <span class="badge badge-danger"><i class="fa fa-times"></i> {{#str}} status_error, tool_bulkcopycourse {{/str}}</span>
+                            {{/iserror}}
+                            {{#ispending}}
+                                <span class="badge badge-secondary"><i class="fa fa-clock-o"></i> {{#str}} status_pending, tool_bulkcopycourse {{/str}}</span>
+                            {{/ispending}}
+                        </td>
+                        <td><code>{{copyshortname}}</code></td>
+                        <td><code>{{shortname}}</code></td>
+                        <td>{{fullname}}</td>
+                        <td class="item-link">
+                            {{#courseurl}}
+                                <a href="{{courseurl}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fa fa-external-link"></i> {{#str}} view_course, tool_bulkcopycourse {{/str}}
+                                </a>
+                            {{/courseurl}}
+                            {{^courseurl}}
+                                -
+                            {{/courseurl}}
+                        </td>
+                    </tr>
+                    {{/items}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

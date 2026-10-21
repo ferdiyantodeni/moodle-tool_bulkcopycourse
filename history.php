@@ -5,6 +5,22 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Execution history and audit trail for bulk course copying.
+ *
+ * @package    tool_bulkcopycourse
+ * @copyright  2024 Ferdiyan Deni <ferdiyantodeni@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
@@ -37,19 +53,19 @@ if ($action === 'export_csv' && $jobid > 0 && confirm_sesskey()) {
     fputs($out, "\xEF\xBB\xBF");
 
     fputcsv($out, [
-        'Line',
-        'Status',
-        'Category ID',
-        'Source Shortname (copyshortname)',
-        'New Shortname',
-        'New Fullname',
-        'ID Number',
-        'Start Date',
-        'End Date',
-        'Enrols',
-        'New Course ID',
-        'New Course URL',
-        'Error / Message'
+        get_string('col_linenumber', 'tool_bulkcopycourse'),
+        get_string('col_status', 'tool_bulkcopycourse'),
+        get_string('col_category', 'tool_bulkcopycourse'),
+        get_string('col_copyshortname', 'tool_bulkcopycourse'),
+        get_string('col_shortname', 'tool_bulkcopycourse'),
+        get_string('col_fullname', 'tool_bulkcopycourse'),
+        get_string('col_idnumber', 'tool_bulkcopycourse'),
+        get_string('startdate', 'moodle'),
+        get_string('enddate', 'moodle'),
+        get_string('col_enrols', 'tool_bulkcopycourse'),
+        get_string('new_course_id', 'tool_bulkcopycourse'),
+        get_string('new_course_url', 'tool_bulkcopycourse'),
+        get_string('error_or_message', 'tool_bulkcopycourse'),
     ]);
 
     foreach ($items as $item) {
@@ -88,14 +104,14 @@ if ($action === 'export_csv' && $jobid > 0 && confirm_sesskey()) {
     fputs($out, "\xEF\xBB\xBF");
 
     fputcsv($out, [
-        'Job ID',
-        'Job Name',
-        'Total Courses',
-        'Completed',
-        'Failed',
-        'Status',
-        'Created Date',
-        'Created By'
+        get_string('header_jobid', 'tool_bulkcopycourse'),
+        get_string('header_jobname', 'tool_bulkcopycourse'),
+        get_string('header_totalcourses', 'tool_bulkcopycourse'),
+        get_string('status_success', 'tool_bulkcopycourse'),
+        get_string('status_failed', 'tool_bulkcopycourse'),
+        get_string('col_status', 'tool_bulkcopycourse'),
+        get_string('created_date', 'tool_bulkcopycourse'),
+        get_string('created_by', 'tool_bulkcopycourse'),
     ]);
 
     foreach ($jobs as $j) {
@@ -108,7 +124,7 @@ if ($action === 'export_csv' && $jobid > 0 && confirm_sesskey()) {
             $j->failedcourses,
             strtoupper($j->status),
             date('d-m-Y H:i:s', $j->timecreated),
-            $user ? fullname($user) : 'User #' . $j->userid
+            $user ? fullname($user) : 'User #' . $j->userid,
         ]);
     }
 
@@ -117,7 +133,7 @@ if ($action === 'export_csv' && $jobid > 0 && confirm_sesskey()) {
 } else if ($action === 'delete' && $jobid > 0 && confirm_sesskey()) {
     $DB->delete_records('tool_bulkcopycourse_items', ['jobid' => $jobid]);
     $DB->delete_records('tool_bulkcopycourse_jobs', ['id' => $jobid]);
-    \core\notification::success('Riwayat pekerjaan #' . $jobid . ' berhasil dihapus.');
+    \core\notification::success(get_string('job_deleted_success', 'tool_bulkcopycourse', $jobid));
     redirect(new moodle_url('/admin/tool/bulkcopycourse/history.php'));
 }
 
@@ -141,7 +157,7 @@ if ($jobid > 0) {
             'jobid' => $jobid,
             'sesskey' => sesskey(),
         ]),
-        '<i class="fa fa-download mr-1"></i> Unduh Hasil (CSV)',
+        '<i class="fa fa-download mr-1"></i> ' . get_string('download_results_csv', 'tool_bulkcopycourse'),
         ['class' => 'btn btn-outline-success mr-2']
     );
     echo html_writer::link(
@@ -150,15 +166,15 @@ if ($jobid > 0) {
             'jobid' => $jobid,
             'sesskey' => sesskey(),
         ]),
-        '<i class="fa fa-trash mr-1"></i> Hapus Pekerjaan Ini',
+        '<i class="fa fa-trash mr-1"></i> ' . get_string('delete_job', 'tool_bulkcopycourse'),
         [
             'class' => 'btn btn-outline-danger mr-2',
-            'onclick' => "return confirm('Apakah Anda yakin ingin menghapus riwayat pekerjaan #{$jobid}?');",
+            'onclick' => "return confirm('" . addslashes_js(get_string('confirm_delete_job', 'tool_bulkcopycourse', $jobid)) . "');",
         ]
     );
     echo html_writer::link(
         new moodle_url('/admin/tool/bulkcopycourse/history.php'),
-        '<i class="fa fa-arrow-left mr-1"></i> Daftar Riwayat',
+        '<i class="fa fa-arrow-left mr-1"></i> ' . get_string('history_list', 'tool_bulkcopycourse'),
         ['class' => 'btn btn-secondary']
     );
 } else {
@@ -168,7 +184,7 @@ if ($jobid > 0) {
             'action' => 'export_all_csv',
             'sesskey' => sesskey(),
         ]),
-        '<i class="fa fa-download mr-1"></i> Unduh Rekap Semua (CSV)',
+        '<i class="fa fa-download mr-1"></i> ' . get_string('download_all_csv', 'tool_bulkcopycourse'),
         ['class' => 'btn btn-outline-success mr-2']
     );
     echo html_writer::link(
@@ -200,7 +216,7 @@ if ($jobid > 0) {
 
     echo html_writer::start_div('card mb-4 shadow-sm');
     echo html_writer::start_div('card-header bg-white d-flex justify-content-between align-items-center');
-    echo html_writer::tag('h5', 'Pekerjaan #' . $job->id . ' - ' . s($job->name), ['class' => 'm-0 font-weight-bold']);
+    echo html_writer::tag('h5', get_string('job_id', 'tool_bulkcopycourse', $job->id) . ' - ' . s($job->name), ['class' => 'm-0 font-weight-bold']);
     echo html_writer::tag('span', strtoupper($job->status), ['class' => 'badge ' . $badgeclass . ' p-2']);
     echo html_writer::end_div();
     echo html_writer::start_div('card-body');
@@ -208,25 +224,25 @@ if ($jobid > 0) {
     echo '<div class="row text-center mb-3">
             <div class="col-md-3">
                 <div class="p-2 border rounded bg-light">
-                    <small class="text-muted">Total Kursus</small>
+                    <small class="text-muted">' . get_string('col_totalcourses', 'tool_bulkcopycourse') . '</small>
                     <h4 class="m-0 font-weight-bold">' . $job->totalcourses . '</h4>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="p-2 border rounded bg-light">
-                    <small class="text-success font-weight-bold">Berhasil</small>
+                    <small class="text-success font-weight-bold">' . get_string('status_success', 'tool_bulkcopycourse') . '</small>
                     <h4 class="m-0 font-weight-bold text-success">' . $job->completedcourses . '</h4>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="p-2 border rounded bg-light">
-                    <small class="text-danger font-weight-bold">Gagal</small>
+                    <small class="text-danger font-weight-bold">' . get_string('status_failed', 'tool_bulkcopycourse') . '</small>
                     <h4 class="m-0 font-weight-bold text-danger">' . $job->failedcourses . '</h4>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="p-2 border rounded bg-light">
-                    <small class="text-muted">Dibuat Oleh</small>
+                    <small class="text-muted">' . get_string('created_by', 'tool_bulkcopycourse') . '</small>
                     <h6 class="m-0 font-weight-bold">' . ($user ? fullname($user) : 'System') . '</h6>
                     <small class="text-muted">' . userdate($job->timecreated, '%d %b %Y %H:%M') . '</small>
                 </div>
@@ -237,15 +253,15 @@ if ($jobid > 0) {
     echo '<table class="table table-hover table-striped table-bordered align-middle">';
     echo '<thead class="thead-light">
             <tr>
-                <th style="width: 50px;">Baris</th>
-                <th>Status</th>
-                <th>Kursus Sumber</th>
-                <th>Nama Lengkap Baru</th>
-                <th>Shortname Baru</th>
-                <th>Kategori</th>
-                <th>ID Number</th>
-                <th>Hasil / Error</th>
-                <th>Aksi</th>
+                <th style="width: 50px;">' . get_string('col_linenumber', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_status', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_copyshortname', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_fullname', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_shortname', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_category', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_idnumber', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('error_or_message', 'tool_bulkcopycourse') . '</th>
+                <th>' . get_string('col_actions', 'tool_bulkcopycourse') . '</th>
             </tr>
           </thead>
           <tbody>';
@@ -255,20 +271,20 @@ if ($jobid > 0) {
         $courselink = '-';
 
         if ($item->status === 'success') {
-            $itembadge = '<span class="badge badge-success">BERHASIL</span>';
+            $itembadge = '<span class="badge badge-success">' . get_string('status_success', 'tool_bulkcopycourse') . '</span>';
             if ($item->newcourseid > 0) {
                 $courselink = html_writer::link(
                     new moodle_url('/course/view.php', ['id' => $item->newcourseid]),
-                    '<i class="fa fa-external-link mr-1"></i> Buka Kursus',
+                    '<i class="fa fa-external-link mr-1"></i> ' . get_string('view_course', 'tool_bulkcopycourse'),
                     ['class' => 'btn btn-sm btn-outline-primary', 'target' => '_blank']
                 );
             }
         } else if ($item->status === 'error') {
-            $itembadge = '<span class="badge badge-danger">ERROR</span>';
+            $itembadge = '<span class="badge badge-danger">' . get_string('status_error', 'tool_bulkcopycourse') . '</span>';
         } else if ($item->status === 'processing') {
-            $itembadge = '<span class="badge badge-info">MEMPROSES</span>';
+            $itembadge = '<span class="badge badge-info">' . get_string('status_processing', 'tool_bulkcopycourse') . '</span>';
         } else {
-            $itembadge = '<span class="badge badge-secondary">MENUNGGU</span>';
+            $itembadge = '<span class="badge badge-secondary">' . get_string('status_pending', 'tool_bulkcopycourse') . '</span>';
         }
 
         echo '<tr>
@@ -280,7 +296,7 @@ if ($jobid > 0) {
                 <td>' . $item->category . '</td>
                 <td>' . s($item->idnumber) . '</td>
                 <td class="small ' . ($item->errormessage ? 'text-danger' : 'text-muted') . '">' .
-                    ($item->errormessage ? s($item->errormessage) : ($item->status === 'success' ? 'Kursus ID: ' . $item->newcourseid : '-')) .
+                    ($item->errormessage ? s($item->errormessage) : ($item->status === 'success' ? get_string('new_course_id', 'tool_bulkcopycourse') . ': ' . $item->newcourseid : '-')) .
                 '</td>
                 <td>' . $courselink . '</td>
               </tr>';
@@ -301,14 +317,14 @@ if ($jobid > 0) {
         echo '<table class="table table-hover table-striped table-bordered align-middle">';
         echo '<thead class="thead-light">
                 <tr>
-                    <th style="width: 70px;">Job ID</th>
-                    <th>Nama Pekerjaan</th>
-                    <th>Total Kursus</th>
-                    <th>Berhasil</th>
-                    <th>Gagal</th>
-                    <th>Status</th>
-                    <th>Waktu Dibuat</th>
-                    <th style="min-width: 220px;">Aksi</th>
+                    <th style="width: 70px;">' . get_string('header_jobid', 'tool_bulkcopycourse') . '</th>
+                    <th>' . get_string('header_jobname', 'tool_bulkcopycourse') . '</th>
+                    <th>' . get_string('header_totalcourses', 'tool_bulkcopycourse') . '</th>
+                    <th>' . get_string('status_success', 'tool_bulkcopycourse') . '</th>
+                    <th>' . get_string('status_failed', 'tool_bulkcopycourse') . '</th>
+                    <th>' . get_string('col_status', 'tool_bulkcopycourse') . '</th>
+                    <th>' . get_string('created_date', 'tool_bulkcopycourse') . '</th>
+                    <th style="min-width: 220px;">' . get_string('col_actions', 'tool_bulkcopycourse') . '</th>
                 </tr>
               </thead>
               <tbody>';
@@ -349,13 +365,13 @@ if ($jobid > 0) {
                     <td>' . userdate($j->timecreated, '%d %b %Y %H:%M') . '</td>
                     <td class="text-nowrap">
                         <a href="' . $detailurl . '" class="btn btn-sm btn-info mr-1">
-                            <i class="fa fa-eye mr-1"></i> Detail
+                            <i class="fa fa-eye mr-1"></i> ' . get_string('view_course', 'tool_bulkcopycourse') . '
                         </a>
-                        <a href="' . $csvurl . '" class="btn btn-sm btn-success mr-1" title="Unduh CSV Hasil">
+                        <a href="' . $csvurl . '" class="btn btn-sm btn-success mr-1" title="' . get_string('download_results_csv', 'tool_bulkcopycourse') . '">
                             <i class="fa fa-download mr-1"></i> CSV
                         </a>
-                        <a href="' . $deleteurl . '" class="btn btn-sm btn-danger" onclick="return confirm(\'Apakah Anda yakin ingin menghapus riwayat pekerjaan #' . $j->id . '?\');">
-                            <i class="fa fa-trash mr-1"></i> Hapus
+                        <a href="' . $deleteurl . '" class="btn btn-sm btn-danger" onclick="return confirm(\'' . addslashes_js(get_string('confirm_delete_job', 'tool_bulkcopycourse', $j->id)) . '\');">
+                            <i class="fa fa-trash mr-1"></i> ' . get_string('delete_job', 'tool_bulkcopycourse') . '
                         </a>
                     </td>
                   </tr>';

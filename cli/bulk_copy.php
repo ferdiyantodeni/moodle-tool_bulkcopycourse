@@ -5,6 +5,22 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Command-line interface for bulk course copying.
+ *
+ * @package    tool_bulkcopycourse
+ * @copyright  2024 Ferdiyan Deni <ferdiyantodeni@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 define('CLI_SCRIPT', true);
 
@@ -49,40 +65,52 @@ $parsed = \tool_bulkcopycourse\helper::parse_csv_file($filepath, $options['delim
 
 if (!empty($parsed['errors'])) {
     foreach ($parsed['errors'] as $err) {
-        cli_problem("Error: {$err}");
+        cli_problem("Validation error: {$err}");
     }
-    exit(1);
+    cli_error("CSV parsing failed.");
 }
 
-$validated = \tool_bulkcopycourse\helper::validate_rows($parsed['rows']);
-$total = count($validated);
-cli_writeln("Found {$total} courses to process.");
+$rows = $parsed['rows'];
+cli_writeln("Found " . count($rows) . " rows. Validating...");
 
-$success = 0;
-$failed = 0;
+$validated = \tool_bulkcopycourse\helper::validate_rows($rows);
+
+$ready = 0;
+$errors = 0;
+foreach ($validated as $v) {
+    if ($v->status === 'error') {
+        $errors++;
+        cli_problem("Line {$v->linenumber} [{$v->copyshortname} -> {$v->shortname}]: " . implode('; ', $v->messages));
+    } else {
+        $ready++;
+    }
+}
+
+cli_writeln("Validation summary: {$ready} ready, {$errors} error(s).");
+
+if ($ready === 0) {
+    cli_error("No courses ready to copy.");
+}
+
+$admin = get_admin();
+$userid = $admin ? $admin->id : 2;
+
+cli_heading("Starting copy operations...");
 
 foreach ($validated as $item) {
-    cli_writeln("-----------------------------------------------------------------");
-    cli_writeln("Line {$item->linenumber}: Master [{$item->copyshortname}] -> New [{$item->shortname}]");
-
     if ($item->status === 'error') {
-        cli_problem("Validation Failed: " . implode('; ', $item->messages));
-        $failed++;
+        cli_writeln("Skipping Line {$item->linenumber} ({$item->shortname}) due to validation errors.");
         continue;
     }
 
+    cli_write("Copying Line {$item->linenumber}: [{$item->copyshortname}] -> [{$item->shortname}]... ");
     try {
-        $admin = get_admin();
-        $adminid = $admin ? $admin->id : 2;
-        $newcourseid = \tool_bulkcopycourse\course_copier::copy_course($item, $adminid);
-        cli_writeln("SUCCESS: Created course ID {$newcourseid} ('{$item->fullname}')");
-        $success++;
+        $newcourseid = \tool_bulkcopycourse\course_copier::copy_course($item, $userid);
+        cli_writeln("[SUCCESS] Course ID: {$newcourseid}");
     } catch (\Throwable $e) {
-        cli_problem("COPY ERROR: " . $e->getMessage());
-        $failed++;
+        cli_writeln("[FAILED] " . $e->getMessage());
     }
 }
 
-cli_writeln("=================================================================");
-cli_heading("Finished: {$success} succeeded, {$failed} failed.");
-exit($failed > 0 ? 1 : 0);
+cli_heading("Bulk copy operations finished.");
+exit(0);

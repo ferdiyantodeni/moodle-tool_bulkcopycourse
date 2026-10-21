@@ -5,6 +5,22 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Ad-hoc background task processor for bulk course copying.
+ *
+ * @package    tool_bulkcopycourse
+ * @copyright  2024 Ferdiyan Deni <ferdiyantodeni@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 namespace tool_bulkcopycourse\task;
 
@@ -51,13 +67,14 @@ class process_bulk_copy extends \core\task\adhoc_task {
         $job->timemodified = time();
         $DB->update_record('tool_bulkcopycourse_jobs', $job);
 
-        $items = $DB->get_records('tool_bulkcopycourse_items', [
-            'jobid' => $jobid,
-            'status' => 'pending',
-        ], 'linenumber ASC');
+        $items = $DB->get_records('tool_bulkcopycourse_items', ['jobid' => $jobid], 'linenumber ASC');
 
         foreach ($items as $item) {
-            mtrace("Processing line {$item->linenumber}: '{$item->shortname}' from source '{$item->copyshortname}'...");
+            if ($item->status !== 'pending') {
+                continue;
+            }
+
+            mtrace(" -> Copying Line {$item->linenumber}: [{$item->copyshortname}] -> [{$item->shortname}]...");
 
             $item->status = 'processing';
             $item->timemodified = time();
@@ -76,7 +93,7 @@ class process_bulk_copy extends \core\task\adhoc_task {
                 $job->timemodified = time();
                 $DB->update_record('tool_bulkcopycourse_jobs', $job);
 
-                mtrace("Line {$item->linenumber} SUCCESS: New course ID {$newcourseid}");
+                mtrace("    [OK] Created Course ID: {$newcourseid}");
             } catch (\Throwable $e) {
                 $item->status = 'error';
                 $item->errormessage = $e->getMessage();
@@ -87,11 +104,10 @@ class process_bulk_copy extends \core\task\adhoc_task {
                 $job->timemodified = time();
                 $DB->update_record('tool_bulkcopycourse_jobs', $job);
 
-                mtrace("Line {$item->linenumber} ERROR: " . $e->getMessage());
+                mtrace("    [FAILED] " . $e->getMessage());
             }
         }
 
-        // Finalize job status.
         $job->status = ($job->failedcourses > 0 && $job->completedcourses === 0) ? 'failed' : 'completed';
         $job->timemodified = time();
         $DB->update_record('tool_bulkcopycourse_jobs', $job);
