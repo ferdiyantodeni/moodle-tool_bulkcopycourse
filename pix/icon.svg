@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f6cbf"/>
+      <stop offset="100%" stop-color="#094478"/>
+    </linearGradient>
+
+    <!-- Orange Accent Gradient -->
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f98012"/>
+      <stop offset="100%" stop-color="#e05e00"/>
+    </linearGradient>
+
+    <!-- Card Gradient -->
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0f4f8"/>
+    </linearGradient>
+
+    <!-- Shadow filter -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.25"/>
+    </filter>
+    <filter id="cardShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded App Background -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- Back/Underlying Course Card (Source Course) -->
+  <g filter="url(#cardShadow)">
+    <rect x="26" y="24" width="56" height="66" rx="8" fill="#d9e6f2" stroke="#b0c8de" stroke-width="2"/>
+    <!-- Card header bar -->
+    <rect x="26" y="24" width="56" height="16" rx="8" fill="#0f6cbf"/>
+    <rect x="26" y="32" width="56" height="8" fill="#0f6cbf"/>
+    <!-- Mini course lines inside source card -->
+    <rect x="34" y="48" width="30" height="4" rx="2" fill="#9ab6cf"/>
+    <rect x="34" y="58" width="40" height="4" rx="2" fill="#b8cde0"/>
+    <rect x="34" y="68" width="22" height="4" rx="2" fill="#b8cde0"/>
+  </g>
+
+  <!-- Front Duplicate Course Card (Target Course) -->
+  <g filter="url(#cardShadow)">
+    <rect x="46" y="38" width="56" height="66" rx="8" fill="url(#cardGrad)" stroke="#ffffff" stroke-width="2"/>
+    <!-- Card header bar (Orange Moodle Accent) -->
+    <rect x="46" y="38" width="56" height="16" rx="8" fill="url(#orangeGrad)"/>
+    <rect x="46" y="46" width="56" height="8" fill="url(#orangeGrad)"/>
+    <!-- Course lines inside front card -->
+    <rect x="54" y="62" width="34" height="4" rx="2" fill="#0f6cbf"/>
+    <rect x="54" y="72" width="40" height="4" rx="2" fill="#cbd5e1"/>
+    <rect x="54" y="82" width="26" height="4" rx="2" fill="#cbd5e1"/>
+    <!-- Green Success check badge on the cloned card -->
+    <circle cx="86" cy="88" r="8" fill="#28a745"/>
+    <path d="M82.5 88 L85 90.5 L89.5 85.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Bulk Copy Replication Indicator (Duplicate badge / plus symbol) -->
+  <g filter="url(#cardShadow)">
+    <circle cx="36" cy="92" r="14" fill="url(#orangeGrad)" stroke="#ffffff" stroke-width="2"/>
+    <!-- Two overlapping squares/copy symbol -->
+    <rect x="30" y="88" width="8" height="8" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.8"/>
+    <rect x="34" y="85" width="8" height="8" rx="1.5" fill="#ffffff" fill-opacity="0.3" stroke="#ffffff" stroke-width="1.8"/>
+  </g>
+</svg>
